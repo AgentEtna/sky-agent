@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# venvs / build artifacts
+.venv/
+.venv-*/
+dist/
+build/
+
+# Runtime artifacts of autoswarm online mode
+conversations/
+skills.yaml
+
+# Harbor benchmark run outputs
+jobs/
+.env
+.env.*
+
+# Editor
+.DS_Store
+.vscode/
+.idea/

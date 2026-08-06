@@ -1,0 +1,22 @@
+pipeline:
+  model: gpt-5
+  max_total_turns: 30
+
+  stages:
+    - id: plan
+      system_prompt: |
+        You are a planner agent.
+      tools: [run_shell]
+      max_turns: 8
+
+    - id: execute
+      system_prompt: |
+        You are an executor agent.
+      tools: [run_shell]
+      max_turns: 22
+
+  handoffs:
+    plan→execute:
+      token_budget: 2000
+      format: markdown
+      include_raw_output: false

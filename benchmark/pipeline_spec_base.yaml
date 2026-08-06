@@ -1,0 +1,13 @@
+pipeline:
+  model: gpt-5
+  max_total_turns: 30
+
+  stages:
+    - id: solve
+      system_prompt: |
+        You are an agent that executes tasks. Use the shell to inspect the
+        environment, then complete the task. Be terse.
+      tools: [run_shell]
+      max_turns: 30
+
+  handoffs: {}
