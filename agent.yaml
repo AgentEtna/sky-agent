@@ -1,0 +1,37 @@
+# ============================================================
+#  agent.yaml — this is YOUR agent. Edit it.
+#  (If auto-deploy is set up, pushing to main redeploys it.)
+# ============================================================
+
+name: My Agent
+
+# Any OpenAI-compatible provider works. Pick yours:
+#   Anthropic:  https://api.anthropic.com/v1/   model: claude-sonnet-4-6
+#   OpenAI:     https://api.openai.com/v1       model: gpt-4o-mini
+#   OpenRouter: https://openrouter.ai/api/v1    model: anthropic/claude-sonnet-4.6 (400+ models)
+#   Groq:       https://api.groq.com/openai/v1  model: llama-3.3-70b-versatile
+#   Ollama:     http://localhost:11434/v1       model: llama3.2 (local + free, no key)
+provider_base_url: https://api.anthropic.com/v1/
+model: claude-sonnet-4-6
+
+# The agent's personality and instructions. 
+system_prompt: |
+  You are a sharp, friendly personal assistant.
+  Be concise. Use plain language. When you use a tool,
+  just give the answer — don't narrate the tool call.
+
+# How many past messages (per chat) to include as context.
+max_context_messages: 30
+
+# Max tokens per reply.
+max_tokens: 1024
+
+# Which channels to run.
+#   telegram: auto  → on only if TELEGRAM_BOT_TOKEN is set (default)
+#             true  → always on (warns if the token is missing)
+#             false → always off
+channels:
+  telegram: auto
+  http: true
+
+# Tools live in agent/tools.py — add a function there to give your agent a new ability.

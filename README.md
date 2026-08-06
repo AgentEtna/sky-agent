@@ -1,4 +1,4 @@
-# AutoSwarm
+# Sky agent 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Stars](https://img.shields.io/github/stars/arteemg/autoswarm?style=social)](https://github.com/arteemg/autoswarm)
@@ -11,154 +11,61 @@
   <a href="https://discord.gg/9ggSRAFGKQ">
     <img src="https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white" alt="Discord" />
   </a>
-   <br>
-  <img src="superagent_solo.gif" alt="AutoSwarm" width="400">
+  <br>
+  <img src="assets/logo_271.gif" alt="One-click-agent logo" width="400">
 </p>
 
-> A self-improving OpenAI-compatible proxy for local LLMs, plus a multi-agent pipeline harness that self-optimizes its own topology.
+Deploy your own AI agent to the cloud in one click.
 
-AutoSwarm runs in two modes:
 
-- **Online mode** — drop-in proxy in front of LM Studio / Ollama / vLLM. It logs every chat, then a `reflect` pass distills lessons into a skillbook that gets injected into future system prompts. Skills that turn out to be wrong get pruned automatically.
-- **Benchmark mode** — a multi-agent pipeline harness over [Harbor](https://github.com/laude-institute/harbor) tasks. A meta-agent edits stage prompts, tools, turn budgets, and pipeline structure to hill-climb on `passed` tasks.
+## Deploy
 
-## Online mode: self-improving local LLM proxy
+1. Fork this repo.
+2. On [Railway](https://railway.com): **New Project → Deploy from GitHub repo** → pick your fork.
+3. Add `LLM_API_KEY` - this can be an API key from any provider, including Anthropic, OpenAI, OpenRouter, etc.
+4. Add `TELEGRAM_BOT_TOKEN` (see below)
+5. Deploy.
 
-### Install
+Railway auto-redeploys every time you push to your fork, so editing your agent = editing files on GitHub.
 
-```bash
-pip install -e .            # editable install from the repo
-```
+## Get a Telegram bot token
 
-Requires Python 3.12+.
+1. Open Telegram and message [@BotFather](https://t.me/BotFather).
+2. Send `/newbot`, pick a name and a username.
+3. Copy the token it gives you — that's your `TELEGRAM_BOT_TOKEN`.
 
-### Start the proxy
+Telegram enables itself when `TELEGRAM_BOT_TOKEN` exists. In chat: `/reset` wipes the bot's memory of that conversation.
 
-```bash
-autoswarm doctor            # diagnose local LLM availability
-autoswarm start             # auto-detects upstream + model
-```
+## Make it yours
 
-`autoswarm start` probes `:1234` (LM Studio), `:11434` (Ollama), and `:8000` (vLLM) and picks the first one that has a model loaded. Override either with `--upstream` / `--model`. The proxy listens on `http://127.0.0.1:8080`.
+| Want to change...                  | Edit...                                                                         |
+| ---------------------------------- | ------------------------------------------------------------------------------- |
+| API endpoints                      | `channels/http_api.py`                                                          |
+| Personality, model, context length | `agent.yaml`                                                                    |
+| The agent's abilities (tools)      | `agent/tools.py`                                                                |
+| Channels (add Discord, Slack, ...) | drop a new file in `channels/`                                                  |
 
-Point any OpenAI-compatible client (Chatbox, Open WebUI, your own scripts) at `http://127.0.0.1:8080/v1`. Every chat is logged to `conversations/` and runs through the proxy's skill-injection layer.
+## Give your agent files
 
-### Reflect and prune
+In the GitHub web UI open `knowledge/`, **Add file → Upload files**, commit. After the auto-redeploy, ask your agent "what files do you have?"
 
-```bash
-autoswarm reflect           # review unreviewed conversations
-```
+Plain-text formats work (md, txt, csv, code). PDFs and images are detected but not supported for now.
 
-For each unreviewed conversation, the same upstream LLM is asked whether there's a concrete lesson worth keeping. Novel lessons land in `skills.yaml`. After the add pass, a second judge call reviews the full skillbook against recent conversations and silently removes anything that's wrong, contradictory, or too vague. Output looks like:
-
-```
-reviewed=12 added=3 skipped=9 pruned=1
-```
-
-For hosted upstreams (OpenAI etc.) pass `--api-key` or set `OPENAI_API_KEY`. Local LLMs need nothing.
-
-### Inspect skills
-
-```bash
-autoswarm skills list       # show learned strategies
-autoswarm skills clear      # wipe the skillbook
-```
-
-### CLI reference
-
-| Command                  | Purpose                                                             |
-| ------------------------ | ------------------------------------------------------------------- |
-| `autoswarm doctor`       | Probe local LLM servers, print copy-paste fixes                     |
-| `autoswarm start`        | Run the OpenAI-compatible proxy on `:8080` with skill injection     |
-| `autoswarm reflect`      | Distill lessons from new conversations + prune bad skills (one LLM call per convo, one per run for pruning) |
-| `autoswarm skills list`  | Show current skills                                                 |
-| `autoswarm skills clear` | Delete `skills.yaml`                                                |
-
-## Benchmark mode
-
-### How it works
-
-- **`pipeline_spec.yaml`** — the topology the meta-agent edits. Defines stages (system prompt, tools, turn budget, output format) and handoffs (token budget, context format) between them. This is the primary edit surface.
-- **`pipeline.py`** — the runner. Reads `pipeline_spec.yaml` and executes the pipeline. Contains a small editable section (tool definitions, compression logic) and a fixed Harbor adapter boundary.
-- **`evaluator.py`** — per-stage LLM judge. After each run, scores every stage on how well its output equipped the next stage. Produces `stage_scores` for `results.tsv` so the meta-agent can identify exactly which stage is failing.
-- **`program_pipeline.md`** — meta-agent instructions. Defines the experiment loop, triage, credit assignment, structural edit rules, and keep/discard criteria.
-- **`agent.py`** — single-agent baseline harness for comparison runs.
-- **`tasks/`** — evaluation tasks in [Harbor](https://github.com/laude-institute/harbor) format.
-
-The metric is total **passed** tasks. The meta-agent hill-climbs on this score by editing the pipeline topology.
-
-<img src="sample/sample_results.png" alt="Sample results" width="600">
-
-### Running the meta-agent
-
-Point your coding agent at the repo and prompt:
+## How it works
 
 ```
-Read benchmark/program_pipeline.md and let's kick off a new experiment!
+Telegram / HTTP ──▶ respond(chat_id, text, config) ──▶ Claude API
+                          │                              │
+                     SQLite memory ◀──── tool use loop ──┘
 ```
 
-The meta-agent will read the directive, inspect `benchmark/pipeline_spec.yaml`, run the benchmark, score each stage with `benchmark/evaluator.py`, edit the topology, and iterate.
+Conversation memory is SQLite on disk, mount a volume (`DB_PATH`) to keep it across redeploys; on Railway, add a volume mounted at `/data` and set `DB_PATH=/data/agent.db`.
 
-### Project structure
+## Self-optimizing benchmark
 
-```text
-pipeline_spec.yaml             -- pipeline topology (primary edit surface)
-pipeline.py                    -- pipeline runner + Harbor adapter
-  editable section             -- load_spec, tools, compress_handoff, run_task
-  fixed adapter section        -- PipelineResult, to_atif, AutoAgent
-evaluator.py                   -- per-stage LLM judge
-program_pipeline.md            -- meta-agent instructions for pipeline optimization
-agent.py                       -- single-agent baseline harness
-Dockerfile.base                -- optional base image for custom task Dockerfiles (`FROM autoswarm-base`)
-tasks/                         -- benchmark tasks
-jobs/                          -- Harbor job outputs (gitignored)
-results.tsv                    -- experiment log (gitignored)
-run.log                        -- latest run output (gitignored)
-```
+This repo also ships a benchmark harness where a meta-agent rewrites its own multi-agent pipeline (prompts, tools, topology) to hill-climb on Harbor tasks. See `benchmark/` to run an experiment.
 
-### pipeline_spec.yaml
-
-This is what the meta-agent reads and edits. Stage-level fields:
-
-| Field           | Description                                                                                                           |
-| --------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `system_prompt` | Instructions for this stage's agent                                                                                   |
-| `tools`         | Tool list — any subset of `run_shell`, `read_file`, `write_file` (register more in `pipeline.py`'s `_TOOL_FACTORIES`) |
-| `max_turns`     | Turn budget for this stage                                                                                            |
-| `output_format` | Hint to the agent: `bullet_list` \| `json` \| `prose` \| `structured_json`                                            |
-| `model`         | Model override (inherits `pipeline.model` if omitted)                                                                 |
-
-Handoff fields between stages:
-
-| Field                | Description                                    |
-| -------------------- | ---------------------------------------------- |
-| `token_budget`       | Max tokens of context passed to the next stage |
-| `format`             | Format hint for context compression            |
-| `include_raw_output` | If true, passes full output uncompressed       |
-
-### results.tsv schema
-
-```text
-commit  avg_score  passed  task_scores  stage_scores  pipeline_topology  cost_usd  status  description
-```
-
-`pipeline_topology` records the stage sequence at time of run — could be `vanilla-agent`, `recon→solve→check`, `plan→execute→verify→execute→verify` (verify-driven retry), or any shape the meta-agent has built — so structural changes are traceable across the experiment log.
-
-### Task format
-
-Tasks follow [Harbor's format](https://harborframework.com/docs/tasks):
-
-```text
-tasks/my-task/
-  task.toml           -- config (timeouts, metadata)
-  instruction.md      -- prompt sent to the agent
-  tests/
-    test.sh           -- entry point, writes /logs/reward.txt
-    test_outputs.py   -- verification (deterministic or LLM-as-judge)
-  environment/
-    Dockerfile        -- task container image for Harbor
-```
 
 ## License
 
-MIT
+MIT — do whatever you want with it. Have fun.

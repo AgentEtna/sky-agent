@@ -10,14 +10,14 @@ __pycache__/
 dist/
 build/
 
-# Runtime artifacts of autoswarm online mode
-conversations/
-skills.yaml
-
 # Harbor benchmark run outputs
 jobs/
 .env
 .env.*
+
+# Chat agent runtime state (SQLite memory, uploads)
+data/
+*.db
 
 # Editor
 .DS_Store

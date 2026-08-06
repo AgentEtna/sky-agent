@@ -6,12 +6,12 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Python deps — only what the agent needs (harbor excluded via .dockerignore)
+# Python deps only (cached layer; code copied below)
 COPY pyproject.toml ./
-RUN uv pip install --system .
+RUN uv pip install --system -r pyproject.toml
 
-# Agent code
-COPY agent.py pipeline.py pipeline_spec.yaml ./
+# Agent code — importable as benchmark.pipeline / benchmark.agent from /app
+COPY benchmark/ ./benchmark/
 
 RUN ln -sf $(which python3) /usr/local/bin/python
 RUN mkdir -p /logs /app/output
