@@ -15,6 +15,7 @@ dependencies = [
     "requests>=2.31",
     "fastapi>=0.110",
     "uvicorn>=0.29",
+    "gepa>=0.1.4",
 ]
 
 [build-system]

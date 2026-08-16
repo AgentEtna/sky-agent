@@ -30,7 +30,11 @@ from harbor.models.agent.context import AgentContext
 # EDITABLE HARNESS — reads pipeline_spec.yaml and runs the pipeline
 # ============================================================================
 
-PIPELINE_SPEC_PATH = Path(__file__).parent / "pipeline_spec.yaml"
+# Overridable so external optimizers (e.g. benchmark/gepa_run.py) can point a
+# run at a candidate spec without touching the committed one.
+PIPELINE_SPEC_PATH = Path(
+    os.environ.get("PIPELINE_SPEC_PATH", Path(__file__).parent / "pipeline_spec.yaml")
+)
 
 COMPRESSION_MODEL = "gpt-5.4-mini"
 
@@ -354,8 +358,14 @@ class AutoAgent(BaseAgent):
 
         stage_traces_path = self.logs_dir / "stage_traces.json"
         exportable = [
-            {"stage": t["stage"], "model": t.get(
-                "model", default_model), "output": t["output"]}
+            {
+                "stage": t["stage"],
+                "model": t.get("model", default_model),
+                # Input is needed by evaluator.py and the GEPA reflective
+                # dataset; capped so trace files stay reasonably small.
+                "input": t.get("input", "")[:20_000],
+                "output": t["output"],
+            }
             for t in result.stage_traces
         ]
         stage_traces_path.write_text(json.dumps(exportable, indent=2))

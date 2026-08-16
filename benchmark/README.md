@@ -41,6 +41,16 @@ The meta-agent will read the directive, inspect `benchmark/pipeline_spec.yaml`, 
 
 <img src="../assets/sample_results.png" alt="Sample results" width="600">
 
+## Prompt optimization with GEPA
+
+Stage prompts are tuned automatically with [GEPA](https://github.com/gepa-ai/gepa) (reflective prompt evolution): the meta-agent owns topology and tools, GEPA owns the prompt text. Candidates are scored by real Harbor rollouts; the reflection LM sees verifier output plus per-stage judge feedback from `benchmark/evaluator.py`.
+
+```bash
+uv run python -m benchmark.gepa_run --max-metric-calls 100 --write-back
+```
+
+One metric call = one task rollout, so budget accordingly. Outputs (rollouts, `best_candidate.json`, an optimized spec, resumable GEPA state) go to `jobs/gepa/<timestamp>/`. See `benchmark/gepa_adapter.py` for the Harbor↔GEPA bridge.
+
 ## Task format
 
 Tasks follow [Harbor's format](https://harborframework.com/docs/tasks):

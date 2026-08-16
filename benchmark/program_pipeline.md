@@ -13,10 +13,12 @@ change the `model:` field in `benchmark/pipeline_spec.yaml` from `gpt-5`.
 
 ## Edit surfaces
 
-**`benchmark/pipeline_spec.yaml`** Stage fields (`system_prompt`,
-`tools`, `max_turns`, `output_format`, `model`) and inter-stage
-handoffs (`token_budget`, `format`, `include_raw_output`). You can
-add, remove, or reorder stages.
+**`benchmark/pipeline_spec.yaml`** Stage fields (`tools`, `max_turns`,
+`output_format`, `model`) and inter-stage handoffs (`token_budget`,
+`format`, `include_raw_output`). You can add, remove, or reorder
+stages. Stage `system_prompt` text is GEPA's domain (see Prompt
+optimization below) — don't hand-tune prompts beyond a rough seed
+for newly added stages.
 
 **`benchmark/pipeline.py` — only above `FIXED ADAPTER BOUNDARY`.**
 Reach for it when YAML alone can't express the change: new tool
@@ -53,6 +55,39 @@ Each iteration:
    stage hitting `max_turns`. Write the clusters down with counts.
 2. **Attack the largest cluster first.** Pick the edit that fixes
    the most tasks at once.
+
+## Prompt optimization (GEPA)
+
+Prompt text is optimized automatically by GEPA
+([reflective prompt evolution](https://arxiv.org/abs/2507.19457)),
+not by hand. Division of labor: **you own structure** (topology,
+tools, turn budgets, handoffs, orchestration code); **GEPA owns the
+words** in each stage's `system_prompt`.
+
+Run it:
+
+\`\`\`bash
+uv run python -m benchmark.gepa_run --max-metric-calls 100 --write-back
+\`\`\`
+
+It evaluates candidates on the triage tasks (1 metric call = 1 task
+rollout), feeds verifier output + `benchmark/evaluator.py` judge
+feedback to the reflection LM, and with `--write-back` commits the
+best prompts into `benchmark/pipeline_spec.yaml`. Artifacts (per-eval
+rollouts, `best_candidate.json`, `optimized_pipeline_spec.yaml`, GEPA
+state for resuming) land in `jobs/gepa/<timestamp>/`.
+
+When to run it:
+
+- after any topology change (new/removed/reordered stages, new tools) —
+  prompts tuned for the old shape are stale;
+- when a failure cluster is prompt-shaped (stage misunderstands its
+  role, omits identifiers the next stage needs, ignores task
+  constraints) rather than structural.
+
+Record each GEPA run as a row in `results.tsv` like any other
+iteration (description: `gepa <n> calls`). If the optimized prompts
+don't beat baseline, don't write them back — fix structure first.
 
 ## Tool and agent strategy
 
